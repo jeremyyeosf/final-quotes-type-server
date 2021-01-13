@@ -4,7 +4,6 @@ const cors = require("cors");
 const morgan = require("morgan");
 const jwt = require("jsonwebtoken");
 const fetch = require("node-fetch");
-const withQuery = require("with-query").default;
 const nodemailer = require("nodemailer");
 const mysql = require("mysql2/promise");
 const { MongoClient } = require("mongodb");
@@ -28,26 +27,13 @@ const pool = mysql.createPool({
     connectionLimit: process.env.MYSQL_CONNECTION,
     timezone: "+08:00",
 });
-const makeQuery = (sql, pool) => {
-    return async (args) => {
-        const conn = await pool.getConnection();
-        try {
-            let results = await conn.query(sql, args || []);
-            if (results[0].length == 0) {
-                throw new Error();
-            } else {
-                return results[0];
-            }
-        } catch (err) {
-            console.log("no results from SQL", err);
-        } finally {
-            conn.release();
-        }
-    };
-};
-const SQL_SELECT_USER = `SELECT user_id FROM user
+
+const SQL_SELECT_USER = `SELECT id, user_id FROM user
 where user_id=? && password=sha1(?)`;
-const authenticateUser = makeQuery(SQL_SELECT_USER, pool);
+const SQL_INSERT_USER = `insert into user(user_id, password) values
+(?, sha1(?))`;
+const SQL_INSERT_CONTACTS = `insert into contacts(user_id, email) values
+(?, ?)`;
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "";
 const passport = require("passport");
@@ -118,11 +104,33 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-app.post('/signup', (req, res) => {
-
-    res.status(200)
-    res.send({message: 'returned from post/signup'})
-})
+app.post("/signup", async (req, res) => {
+    const {email, username, password} = req.body
+    console.log(email, username, password)
+    const conn = await pool.getConnection();
+    try {
+        // transaction
+        // await conn.beginTransaction()
+        const result = await conn.query(SQL_INSERT_USER, [username, password]);
+        // const userSelectResults = await conn.query(SQL_SELECT_USER, [username, password]);
+        // console.log('RETURNED FROM MYSQL', userSelectResults )
+        // console.log(userSelectResults[0][0].id)
+        // let user_id = userSelectResults[0][0].id
+        // const result2 = await conn.query(SQL_INSERT_CONTACTS, [user_id, email]);
+        // await conn.commit()
+        console.log('RETURNED FROM MYSQL', result)
+        return res.status(200).json({message: 'completed transaction'})
+    } catch (e) {
+        (e) => {
+            // conn.rollback()
+            console.log("err", e);
+        };
+    } finally {
+        conn.release();
+    }
+    // res.status(200)
+    // res.send({message: 'completed transaction'})
+});
 
 app.post("/email", (req, res) => {
     const { to, subject, text } = req.body;
@@ -152,7 +160,6 @@ app.get("/api/data", async (req, res) => {
         .sort({ playerScore: -1 })
         .limit(10)
         .toArray();
-    
 
     res.status(200);
     res.type("application/json");
@@ -177,10 +184,18 @@ app.post("/api/data", async (req, res) => {
     res.json({ message: "sent to mongo", result: result });
 });
 
-app.get("/quote", async (req, res) => {
-    const result = await fetch("http://api.quotable.io/random");
+app.get("/quote/:category", async (req, res) => {
+    console.log("req: ", req.query);
+    let category = req.params["category"];
+    console.log("params: ", category);
+    if (category == "random") {
+        category = "";
+    }
+    const result = await fetch(
+        `http://api.quotable.io/random?maxLength=${req.query.maxLength}&tags=${category}`
+    );
     const quote = await result.json();
-    console.log(quote);
+    // console.log(quote);
 
     res.status(200);
     res.send(quote);
@@ -297,3 +312,115 @@ Promise.all([p0, p1]).then((r) => {
 //         res.send({message: 'wrong username or password'})
 //     }
 // })
+
+// fs.mkdir("./temp", { recursive: true }, (err) => {
+//     if (err) throw err;
+// });
+// const storage = multer.diskStorage({
+//     destination: function (req, file, cb) {
+//         cb(null, "./temp");
+//     },
+//     filename: function (req, file, cb) {
+//         let extArray = file.mimetype.split("/");
+//         let extension = extArray[extArray.length - 1];
+//         cb(null, new Date().getTime() + "." + extension);
+//     },
+// });
+
+// const readFile = (path) =>
+//     new Promise((resolve, reject) =>
+//         fs.readFile(path, (err, buff) => {
+//             if (null != err) reject(err);
+//             else resolve(buff);
+//         })
+//     );
+// const putObject = (file, buff, s3) =>
+//     new Promise((resolve, reject) => {
+//         const params = {
+//             Bucket: AWS_S3_BUCKET_NAME,
+//             Key: file.filename,
+//             Body: buff,
+//             ACL: "public-read",
+//             ContentType: file.mimetype,
+//             ContentLength: file.size,
+//         };
+//         s3.putObject(params, (err, result) => {
+//             if (null != err) reject(err);
+//             else resolve(file.filename);
+//         });
+//     });
+
+// const multer = require("multer");
+// const AWS = require("aws-sdk");
+// const fs = require("fs");
+// multerS3 = require('multer-s3');
+
+// const AWS_S3_HOSTNAME = process.env.AWS_S3_HOSTNAME;
+// const AWS_S3_ACCESSKEY_ID = process.env.AWS_S3_ACCESSKEY_ID;
+// const AWS_S3_SECRET_ACCESSKEY = process.env.AWS_S3_SECRET_ACCESSKEY;
+// const AWS_S3_BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
+// const endpoint = new AWS.Endpoint(AWS_S3_HOSTNAME);
+// const s3 = new AWS.S3({
+//     endpoint,
+//     accessKeyId: AWS_S3_ACCESSKEY_ID,
+//     secretAccessKey: AWS_S3_SECRET_ACCESSKEY,
+// });
+// const upload = multer({
+//     storage: multerS3({
+//         s3: s3,
+//         bucket: AWS_S3_BUCKET_NAME,
+//         acl: 'public-read',
+//         key: (request, file, callback) => {
+//             console.log('file:', file)
+//             callback(null, new Date().getTime() + '_' + file.originalname)
+//         }
+//     })
+// }).single('profilePicture')
+
+// const p3 = new Promise((resolve, reject) => {
+//     s3.headBucket(
+//         {
+//             Bucket: AWS_S3_BUCKET_NAME,
+//         },
+//         function (err, data) {
+//             if (err) {
+//                 console.log(err, err.stack);
+//                 reject(err);
+//             } else {
+//                 resolve("success");
+//             }
+//         }
+//     );
+// });
+
+// upload(req, res, (error) => {
+//     if (error) {
+//         console.log(error)
+//         return res.redirect('/error')
+//     }
+//     console.log('Image upload success')
+//     res.status(200)
+//     res.json({
+//         message: 'Image uploaded to DigitalOcean',
+//         s3_file_key: res.req.file.location
+//     })
+// })
+// const makeQuery = (sql, pool) => {
+//     return async (args) => {
+//         const conn = await pool.getConnection();
+//         try {
+//             let results = await conn.query(sql, args || []);
+//             if (results[0].length == 0) {
+//                 throw new Error();
+//             } else {
+//                 return results[0];
+//             }
+//         } catch (err) {
+//             console.log("no results from SQL", err);
+//         } finally {
+//             conn.release();
+//         }
+//     };
+// };
+
+// const authenticateUser = makeQuery(SQL_SELECT_USER, pool);
