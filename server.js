@@ -5,11 +5,12 @@ const morgan = require("morgan");
 const jwt = require("jsonwebtoken");
 const fetch = require("node-fetch");
 const withQuery = require("with-query").default;
+const nodemailer = require("nodemailer");
 const mysql = require("mysql2/promise");
 const { MongoClient } = require("mongodb");
 
-const MONGO_USERNAME = process.env.MONGO_USERNAME || ''
-const MONGO_PASSWORD = process.env.MONGO_PASSWORD || ''
+const MONGO_USERNAME = process.env.MONGO_USERNAME || "";
+const MONGO_PASSWORD = process.env.MONGO_PASSWORD || "";
 const MONGO_DATABASE = process.env.MONGO_DATABASE || "typinggame";
 const MONGO_COLLECTION = process.env.MONGO_COLLECTION || "playerdata";
 const MONGO_URL = `mongodb+srv://${MONGO_USERNAME}:${MONGO_PASSWORD}@cluster0.b6fu0.mongodb.net/${MONGO_DATABASE}?retryWrites=true&w=majority`;
@@ -98,6 +99,16 @@ passport.use(
 );
 const localStrategyAuth = mkAuth(passport);
 
+const transporter = nodemailer.createTransport({
+    port: 465, // true for 465, false for other ports
+    host: "smtp.gmail.com",
+    auth: {
+        user: "jeremyyeo.sf5@gmail.com",
+        pass: "Y)TS2dJ)cr`P9){2",
+    },
+    secure: true,
+});
+
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3000;
 
@@ -107,13 +118,50 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-app.get("/api/data", async (req, res) => {
-    // get top 10 scores from Mongo ranked by score
+app.post('/signup', (req, res) => {
+
     res.status(200)
+    res.send({message: 'returned from post/signup'})
 })
 
+app.post("/email", (req, res) => {
+    const { to, subject, text } = req.body;
+    const mailData = {
+        from: "jeremyyeo.sf5@gmail.com", // sender address
+        to: to, // list of receivers
+        subject: subject,
+        text: text.join("\n\n"),
+    };
+
+    transporter.sendMail(mailData, (error, info) => {
+        if (error) {
+            return console.log(error);
+        }
+        res.status(200);
+        res.send({ message: "Mail sent", message_id: info });
+    });
+});
+
+app.get("/api/data", async (req, res) => {
+    // get top 10 scores from Mongo ranked by score
+    const result = await mongoClient
+        .db("typinggame")
+        .collection("playerdata")
+        .find()
+        .project({ playerName: 1, playerScore: 1 })
+        .sort({ playerScore: -1 })
+        .limit(10)
+        .toArray();
+    
+
+    res.status(200);
+    res.type("application/json");
+    res.json(result);
+    res.status(200);
+});
+
 app.post("/api/data", async (req, res) => {
-    console.log("request to Express:", req.body);
+    // console.log("request to Express:", req.body);
 
     const playerData = {
         playerName: req.body.playerName,
@@ -126,7 +174,7 @@ app.post("/api/data", async (req, res) => {
         .collection(MONGO_COLLECTION)
         .insertOne(playerData);
     res.status(200);
-    res.json({ message: "sent" });
+    res.json({ message: "sent to mongo", result: result });
 });
 
 app.get("/quote", async (req, res) => {
