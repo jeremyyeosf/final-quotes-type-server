@@ -5,9 +5,10 @@ create database paf2020;
 use paf2020;
 
 create table user (
-	user_id varchar(64) not null,
+	`id` INT(11) NOT NULL AUTO_INCREMENT,
+	user_id varchar(64) not null UNIQUE,
 	password varchar(64) not null,
-	primary key(user_id)
+	primary key(id)
 );
 
 insert into user(user_id, password) values
@@ -32,3 +33,6 @@ CREATE TABLE IF NOT EXISTS `contacts` (
   )
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
+
+insert into contacts(user_id, email) values
+	(1, 'fred@gmail.com');

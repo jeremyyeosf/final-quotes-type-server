@@ -18,6 +18,13 @@ const mongoClient = new MongoClient(MONGO_URL, {
     useUnifiedTopology: true,
 });
 
+const SQL_SELECT_USER = `SELECT id, user_id FROM user
+where user_id=? && password=sha1(?)`;
+const SQL_INSERT_USER = `insert into user(user_id, password) values
+(?, sha1(?))`;
+const SQL_INSERT_CONTACTS = `insert into contacts(user_id, email) values
+(?, ?)`;
+
 const pool = mysql.createPool({
     host: process.env.MYSQL_SERVER,
     port: parseInt(process.env.MYSQL_PORT),
@@ -27,13 +34,22 @@ const pool = mysql.createPool({
     connectionLimit: process.env.MYSQL_CONNECTION,
     timezone: "+08:00",
 });
-
-const SQL_SELECT_USER = `SELECT id, user_id FROM user
-where user_id=? && password=sha1(?)`;
-const SQL_INSERT_USER = `insert into user(user_id, password) values
-(?, sha1(?))`;
-const SQL_INSERT_CONTACTS = `insert into contacts(user_id, email) values
-(?, ?)`;
+const makeQuery = (query, pool) => {
+    return async (args) => {
+        const conn = await pool.getConnection();
+        try {
+            let results = await conn.query(query, args || []);
+            return results[0];
+        } catch (error) {
+            console.log(error);
+        } finally {
+            conn.release();
+        }
+    };
+};
+const selectUser = makeQuery(SQL_SELECT_USER, pool);
+const insertUser = makeQuery(SQL_INSERT_USER, pool);
+const insertContacts = makeQuery(SQL_INSERT_CONTACTS, pool);
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "";
 const passport = require("passport");
@@ -105,31 +121,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 app.post("/signup", async (req, res) => {
-    const {email, username, password} = req.body
-    console.log(email, username, password)
+    let { email, username, password } = req.body;
+    // console.log(email, username, password);
     const conn = await pool.getConnection();
     try {
-        // transaction
-        // await conn.beginTransaction()
-        const result = await conn.query(SQL_INSERT_USER, [username, password]);
-        // const userSelectResults = await conn.query(SQL_SELECT_USER, [username, password]);
-        // console.log('RETURNED FROM MYSQL', userSelectResults )
-        // console.log(userSelectResults[0][0].id)
-        // let user_id = userSelectResults[0][0].id
-        // const result2 = await conn.query(SQL_INSERT_CONTACTS, [user_id, email]);
-        // await conn.commit()
-        console.log('RETURNED FROM MYSQL', result)
-        return res.status(200).json({message: 'completed transaction'})
-    } catch (e) {
-        (e) => {
-            // conn.rollback()
-            console.log("err", e);
-        };
+        await conn.beginTransaction()
+        let result = await conn.query(SQL_SELECT_USER, [username, password])
+        if (result[0].length == 0) {
+            let insertUserResult = await conn.query(SQL_INSERT_USER, [username, password])
+            let user_id = insertUserResult[0].insertId;
+            console.log('user_id:', user_id);
+            let insertContactsResult = await conn.query(SQL_INSERT_CONTACTS, [user_id, email])
+            console.log(insertContactsResult[0]);
+            await conn.commit()
+            res.status(200).json({ message: "completed transaction" });
+        } else {
+            res.status(409).send({ message: "username already exists" });
+        }
+    } catch (error) {
+        console.log(error);
+        res.status(400).json(error);
+        conn.rollback();
     } finally {
         conn.release();
     }
-    // res.status(200)
-    // res.send({message: 'completed transaction'})
 });
 
 app.post("/email", (req, res) => {
