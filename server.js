@@ -99,6 +99,7 @@ passport.use(
         }
     )
 );
+
 const localStrategyAuth = mkAuth(passport);
 
 const transporter = nodemailer.createTransport({
@@ -288,6 +289,8 @@ app.get(
     }
 );
 
+
+
 const p0 = (async () => {
     const conn = await pool.getConnection();
     await conn.ping();
@@ -440,3 +443,58 @@ Promise.all([p0, p1]).then((r) => {
 // };
 
 // const authenticateUser = makeQuery(SQL_SELECT_USER, pool);
+
+// app.get('/auth/google',
+//   passport.authenticate('google', { scope: ["profile", "email"]})
+// );
+
+// app.get('/auth/google/callback', 
+//   passport.authenticate('google', { failureRedirect: '/login' }),
+//   function(req, res) {
+//     // Successful authentication, redirect home.
+//     res.redirect(`http://localhost:8080/dashboard`);
+// });
+// const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+// const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
+
+// var GoogleStrategy = require('passport-google-oauth20').Strategy;
+// passport.use(new GoogleStrategy({
+//     clientID: GOOGLE_CLIENT_ID,
+//     clientSecret: GOOGLE_CLIENT_SECRET,
+//     callbackURL: "http://localhost:3000/auth/google/callback"
+//   },
+//   function(accessToken, refreshToken, profile, cb) {
+//     User.findOrCreate({ googleId: profile.id }, function (err, user)               {
+//      return done(err, profile);
+//     });
+//   }
+// ));
+
+
+
+// const {OAuth2Client} = require('google-auth-library');
+// const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// async function verify(token) {
+//     const ticket = await client.verifyIdToken({
+//         idToken: token,
+//         audience: GOOGLE_CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
+//         // Or, if multiple clients access the backend:
+//         //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
+//     });
+//     const payload = ticket.getPayload();
+//     const userid = payload['sub'];
+//     return userid
+//     // If request specified a G Suite domain:
+//     // const domain = payload['hd'];
+//   }
+  
+  
+//   app.post('/googleauth', async (req, res) => {
+//       console.log('req.body', req.body)
+//       let token = req.body['token']
+//       let result = await verify(token)
+//       console.log('RESULT', result)
+//       res.status(200).json({message: 'google authorised'})
+  
+//   })
