@@ -10,8 +10,8 @@ const { MongoClient } = require("mongodb");
 
 const MONGO_USERNAME = process.env.MONGO_USERNAME || "";
 const MONGO_PASSWORD = process.env.MONGO_PASSWORD || "";
-const MONGO_DATABASE = process.env.MONGO_DATABASE || "typinggame";
-const MONGO_COLLECTION = process.env.MONGO_COLLECTION || "playerdata";
+const MONGO_DATABASE = process.env.MONGO_DATABASE || "";
+const MONGO_COLLECTION = process.env.MONGO_COLLECTION || "";
 const MONGO_URL = `mongodb+srv://${MONGO_USERNAME}:${MONGO_PASSWORD}@cluster0.b6fu0.mongodb.net/${MONGO_DATABASE}?retryWrites=true&w=majority`;
 const mongoClient = new MongoClient(MONGO_URL, {
     useNewUrlParser: true,
@@ -106,8 +106,8 @@ const transporter = nodemailer.createTransport({
     port: 465, // true for 465, false for other ports
     host: "smtp.gmail.com",
     auth: {
-        user: "jeremyyeo.sf5@gmail.com",
-        pass: "Y)TS2dJ)cr`P9){2",
+        user: process.env.NODEMAILER_USER,
+        pass: process.env.NODEMAILER_PASS,
     },
     secure: true,
 });
@@ -152,7 +152,7 @@ app.post("/signup", async (req, res) => {
 app.post("/email", (req, res) => {
     const { to, subject, text } = req.body;
     const mailData = {
-        from: "jeremyyeo.sf5@gmail.com", // sender address
+        from: process.env.NODEMAILER_USER, // sender address
         to: to, // list of receivers
         subject: subject,
         text: text.join("\n\n"),
