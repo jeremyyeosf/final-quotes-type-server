@@ -183,7 +183,6 @@ app.get("/api/data", async (req, res) => {
 });
 
 app.post("/api/data", async (req, res) => {
-    // console.log("request to Express:", req.body);
 
     const playerData = {
         playerName: req.body.playerName,
@@ -191,6 +190,8 @@ app.post("/api/data", async (req, res) => {
         totalTimeTaken: req.body.totalTimeTaken,
         quotesCompleted: req.body.quotesCompleted,
     };
+    // console.log("EXPRESS API DATA POSTED:", playerData);
+
     const result = await mongoClient
         .db(MONGO_DATABASE)
         .collection(MONGO_COLLECTION)
