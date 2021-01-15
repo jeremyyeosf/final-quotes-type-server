@@ -115,6 +115,8 @@ const transporter = nodemailer.createTransport({
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3000;
 
+app.use(express.static(__dirname + '/frontend'))
+
 app.use(cors());
 app.options('*', cors());
 app.use(morgan("combined"));
